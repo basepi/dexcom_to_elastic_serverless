@@ -52,9 +52,15 @@ def auth_callback(event, context):
     """
     auth_code = event["pathParameters"]["code"]
 
-    payload = f"client_secret={client_secret}&client_id={client_id}&code={auth_code}&grant_type=authorization_code&redirect_uri={redirect_uri}"  # noqa: E501
+    params = {
+        "client_secret": client_secret,
+        "client_id": client_id,
+        "code": auth_code,
+        "grant_type": "authorization_code",
+        "redirect_uri": redirect_uri,
+    }
     headers = {"content-type": "application/x-www-form-urlencoded", "cache-control": "no-cache"}
-    r = requests.post(base_url + "/v2/oauth2/token", params=payload, headers=headers)
+    r = requests.post(base_url + "/v2/oauth2/token", data=params, headers=headers)
     r.raise_for_status()
     data = r.json()
 
@@ -99,9 +105,15 @@ def refresh(event, context):
     item = response["Item"]
     refresh = item["refresh_token"]
 
-    payload = f"client_secret={client_secret}&client_id={client_id}&refresh_token={refresh}&grant_type=refresh_token&redirect_uri={redirect_uri}"  # noqa: E501
+    params = {
+        "client_secret": client_secret,
+        "client_id": client_id,
+        "refresh_token": refresh,
+        "grant_type": "refresh_token",
+        "redirect_uri": redirect_uri,
+    }
     headers = {"content-type": "application/x-www-form-urlencoded", "cache-control": "no-cache"}
-    r = requests.post(base_url + "/v2/oauth2/token", params=payload, headers=headers)
+    r = requests.post(base_url + "/v2/oauth2/token", data=params, headers=headers)
     r.raise_for_status()
     data = r.json()
 
