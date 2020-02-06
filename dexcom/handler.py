@@ -66,7 +66,7 @@ def auth_callback(event, context):
 
     access_token = data["access_token"]
     refresh_token = data["refresh_token"]
-    expires = time.time() + data["expires_in"] - 10  # 10 second grace period
+    expires = int(time.time() + data["expires_in"] - 10)  # 10 second grace period
 
     # Save to dynamodb
     table = dynamodb.Table(os.environ["DYNAMODB_TABLE"])
@@ -119,7 +119,7 @@ def refresh(event, context):
 
     access_token = data["access_token"]
     refresh_token = data["refresh_token"]
-    expires = time.time() + data["expires_in"] - 10  # 10 second grace period
+    expires = int(time.time() + data["expires_in"] - 10)  # 10 second grace period
 
     # Save to dynamodb
     table = dynamodb.Table(os.environ["DYNAMODB_TABLE"])
