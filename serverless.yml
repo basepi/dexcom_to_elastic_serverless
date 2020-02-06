@@ -50,6 +50,20 @@ functions:
           path: auth
           method: get
           cors: true
+  auth_callback:
+    handler: handler.auth_callback
+    events:
+      - http:
+          path: auth_callback
+          method: get
+          cors: true
+  refresh:
+    handler: handler.refresh
+    events:
+      - http:
+          path: refresh
+          method: get
+          cors: true
 
 
 resources:

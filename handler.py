@@ -94,6 +94,7 @@ def refresh(event, context):
     log.info("Refreshing token.")
 
     # Get user info from dynamodb
+    table = dynamodb.Table(os.environ["DYNAMODB_TABLE"])
     response = table.get_item(Key={"id": user_id}, ConsistentRead=True)
     item = response["Item"]
     refresh = item["refresh_token"]
