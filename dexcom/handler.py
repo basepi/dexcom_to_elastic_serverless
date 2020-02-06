@@ -50,7 +50,7 @@ def auth_callback(event, context):
 
     This is a callback from the redirect in auth()
     """
-    auth_code = event["pathParameters"]["code"]
+    auth_code = event["queryStringParameters"]["code"]
 
     params = {
         "client_secret": client_secret,
