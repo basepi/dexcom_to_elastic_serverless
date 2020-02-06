@@ -9,6 +9,7 @@ custom:
   region: ${opt:region, self:provider.region}
   pythonRequirements:
     dockerizePip: true
+    usePoetry: false
 
 provider:
   name: aws
@@ -28,7 +29,12 @@ provider:
     ES_INDEX: ${param:ES_INDEX}
     DEXCOM_CLIENT_ID: ${param:DEXCOM_CLIENT_ID}
     DEXCOM_CLIENT_SECRET: ${param:DEXCOM_CLIENT_SECRET}
-    DEXCOM_REDIRECT_URI: ${param:DEXCOM_REDIRECT_URI}
+    DEXCOM_REDIRECT_URI:
+      Fn::Join:
+        - ""
+        - - "https://"
+          - Ref: "ApiGatewayRestApi"
+          - ".execute-api.${self:custom.region}.amazonaws.com/${self:custom.stage}/auth_callback"
     DEXCOM_BASE_URL: ${param:DEXCOM_BASE_URL}
   iamRoleStatements:
     - Effect: Allow
@@ -44,21 +50,21 @@ provider:
 
 functions:
   auth:
-    handler: dexcom/dexcom.auth
+    handler: dexcom/handler.auth
     events:
       - http:
           path: auth
           method: get
           cors: true
   auth_callback:
-    handler: dexcom/dexcom.auth_callback
+    handler: dexcom/handler.auth_callback
     events:
       - http:
           path: auth_callback
           method: get
           cors: true
   refresh:
-    handler: dexcom/dexcom.refresh
+    handler: dexcom/handler.refresh
     events:
       - http:
           path: refresh
