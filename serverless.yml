@@ -44,21 +44,21 @@ provider:
 
 functions:
   auth:
-    handler: handler.auth
+    handler: dexcom/dexcom.auth
     events:
       - http:
           path: auth
           method: get
           cors: true
   auth_callback:
-    handler: handler.auth_callback
+    handler: dexcom/dexcom.auth_callback
     events:
       - http:
           path: auth_callback
           method: get
           cors: true
   refresh:
-    handler: handler.refresh
+    handler: dexcom/dexcom.refresh
     events:
       - http:
           path: refresh
