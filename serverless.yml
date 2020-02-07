@@ -7,6 +7,7 @@ org: basepi
 custom:
   stage: ${opt:stage, self:provider.stage}
   region: ${opt:region, self:provider.region}
+  myTopic: DexcomUsers
   pythonRequirements:
     dockerizePip: true
     usePoetry: false
@@ -29,6 +30,7 @@ provider:
     ES_INDEX: ${param:ES_INDEX}
     DEXCOM_CLIENT_ID: ${param:DEXCOM_CLIENT_ID}
     DEXCOM_CLIENT_SECRET: ${param:DEXCOM_CLIENT_SECRET}
+    SNS_TOPIC: !Ref SuperTopic
     DEXCOM_REDIRECT_URI:
       Fn::Join:
         - ""
@@ -46,6 +48,11 @@ provider:
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
       Resource: "arn:aws:dynamodb:${self:custom.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
+    - Effect: 'Allow'
+      Action:
+        - sns:Publish
+      Resource:
+        - !Ref SuperTopic
 
 
 functions:
@@ -70,7 +77,19 @@ functions:
           path: refresh
           method: get
           cors: true
-
+  fetch_all:
+    handler: dexcom/handler.fetch_all
+    events:
+      - http:
+          path: fetch_all
+          method: get
+          cors: true
+  fetch:
+    handler: dexcom/handler.fetch
+    events:
+      - sns:
+          arn: !Ref SuperTopic
+          topicName: ${self:custom.myTopic}
 
 resources:
   Resources:
@@ -90,6 +109,10 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:provider.environment.DYNAMODB_TABLE}
+    SuperTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:custom.myTopic}
 
 plugins:
   - serverless-python-requirements

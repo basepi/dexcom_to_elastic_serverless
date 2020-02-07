@@ -19,9 +19,10 @@ es_index = os.environ["ES_INDEX"]
 es_user = os.environ["ES_USER"]
 es_password = os.environ["ES_PASSWORD"]
 es_endpoints = [os.environ["ES_ENDPOINT"]]
+topic_arn = os.environ["SNS_TOPIC"]
 
-logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 timestr = "%Y-%m-%dT%H:%M:%S"
 time_window = timedelta(hours=1)
 
@@ -137,3 +138,29 @@ def refresh(event, context):
     data = {"result": "Success!"}
     response["body"] = json.dumps(data)
     return response
+
+
+def fetch_all(event, context):
+    """
+    Iterates over users in the database, triggering fetch() (via SNS) for each
+    """
+    sns = boto3.client("sns")
+    table = dynamodb.Table(os.environ["DYNAMODB_TABLE"])
+    users = table.scan(ProjectionExpression="id")["Items"]
+    for user in users:
+        user_id = user["id"]
+        sns.publish(TopicArn=topic_arn, Message=user_id)
+
+    response = {}
+    response["statusCode"] = 200
+    data = {"result": "Success!"}
+    response["body"] = json.dumps(data)
+    return response
+
+
+def fetch(event, context):
+    """
+    Fetch all of the records for a given user id, passed via SNS
+    """
+    user_id = event["Records"][0]["Sns"]["Message"]
+    log.info(user_id)
