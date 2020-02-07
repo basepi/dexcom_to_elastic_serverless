@@ -32,7 +32,7 @@ provider:
     DEXCOM_CLIENT_ID: ${param:DEXCOM_CLIENT_ID}
     DEXCOM_CLIENT_SECRET: ${param:DEXCOM_CLIENT_SECRET}
     ACCESS_KEY: ${param:ACCESS_KEY}
-    DEXCOM_BASE_URL: ${param:DEXCOM_BASE_URL}
+    DEXCOM_BASE_URL: "https://api.dexcom.com"
     DEXCOM_REDIRECT_URI:
       Fn::Join:
         - ""
