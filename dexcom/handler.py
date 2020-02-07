@@ -24,7 +24,7 @@ topic_arn = os.environ["SNS_TOPIC"]
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 timestr = "%Y-%m-%dT%H:%M:%S"
-time_window = timedelta(hours=1)
+time_window = timedelta(hours=6)
 
 # TODO: will be from cognito eventually
 user_id = "1234567890"
@@ -100,6 +100,9 @@ def refresh(event, context):
     """
     log.info("Refreshing token.")
 
+    if isinstance(event, str):
+        user_id = event
+
     # Get user info from dynamodb
     table = dynamodb.Table(os.environ["DYNAMODB_TABLE"])
     response = table.get_item(Key={"id": user_id}, ConsistentRead=True)
@@ -133,11 +136,14 @@ def refresh(event, context):
     table.put_item(Item=item)
     log.info("Token fetch and save successful.")
 
-    response = {}
-    response["statusCode"] = 200
-    data = {"result": "Success!"}
-    response["body"] = json.dumps(data)
-    return response
+    if isinstance(event, str):
+        return access_token, item, expires
+    else:
+        response = {}
+        response["statusCode"] = 200
+        data = {"result": "Success!"}
+        response["body"] = json.dumps(data)
+        return response
 
 
 def fetch_all(event, context):
@@ -162,5 +168,139 @@ def fetch(event, context):
     """
     Fetch all of the records for a given user id, passed via SNS
     """
+    fn_start_time = time.time()
     user_id = event["Records"][0]["Sns"]["Message"]
-    log.info(user_id)
+    log.info(f"Fetching egvs for {user_id}")
+
+    # Get user info from dynamodb
+    table = dynamodb.Table(os.environ["DYNAMODB_TABLE"])
+    response = table.get_item(Key={"id": user_id}, ConsistentRead=True)
+    item = response["Item"]
+    expires = item.get("expires")
+    access_token = item.get("access_token")
+
+    if not expires or time.time() > expires:
+        access_token, item, expires = refresh(user_id, None)
+
+    # Set up elasticsearch
+    es = elasticsearch.Elasticsearch(es_endpoints, http_auth=(es_user, es_password), scheme="https", port=443)
+
+    # Check for previous cursor
+    earliest_egv = None
+    latest_egv = None
+    cursor = datetime.fromtimestamp(0)
+    if "cursor" in item:
+        cursor = datetime.strptime(item["cursor"], timestr)
+
+    while True:
+        # Check if we need a new token
+        if time.time() > expires:
+            access_token, item, expires = refresh(user_id, None)
+
+        if not earliest_egv or cursor > latest_egv:
+            # Get dataranges for the user
+            try:
+                headers = {"authorization": f"Bearer {access_token}"}
+                r = requests.get(base_url + "/v2/users/self/dataRange", headers=headers)
+                r.raise_for_status()
+                data = r.json()
+            except ConnectionError as e:
+                log.error(f"Received a connection error from datarange endpoint: {e}")
+                return False
+
+            # Sometimes egv can have a decimal on the seconds. Throw it away.
+            earliest_egv = datetime.strptime(data["egvs"]["start"]["systemTime"].split(".", 1)[0], timestr)
+            latest_egv = datetime.strptime(data["egvs"]["end"]["systemTime"].split(".", 1)[0], timestr)
+
+        if earliest_egv > cursor:
+            cursor = earliest_egv
+        elif cursor > latest_egv:
+            # We've fetched all the records
+            log.info("No new records found. Ending invocation.")
+            return True
+
+        # Fetch an hour of estimated glucose values (egv)
+        finish = cursor + time_window
+
+        startstr = cursor.strftime(timestr)
+        finishstr = finish.strftime(timestr)
+
+        try:
+            headers = {"authorization": f"Bearer {access_token}"}
+            r = requests.get(
+                base_url + f"/v2/users/self/egvs?startDate={startstr}&endDate={finishstr}", headers=headers
+            )
+            r.raise_for_status()
+            data = r.json()
+        except ConnectionError as e:
+            log.error(f"Received a ConnectionResetError querying egvs: {e}")
+            return False
+
+        data = _format_data(data, es_index + user_id) if data else {}
+
+        if data:
+            # Bulk send to elasticsearch
+            elasticsearch.helpers.bulk(es, data)
+            log.info(f"Indexed {len(data)} records from {startstr} to {finishstr}")
+
+            # Record the time of the newest EGV we have (they are sorted from newest to oldest)
+            last_egv = datetime.strptime(data[0]["_source"]["@timestamp"], timestr)
+            # Update the cursor to one second past our last indexed event
+            cursor = last_egv + timedelta(seconds=1)
+
+        # We can skip ahead if the window was empty but there are already more
+        # events post-window
+        if finish < latest_egv:
+            if not data:
+                # No events in this window (and more events after this window),
+                # likely due to sensor change.
+                log.info(
+                    "No events in the time window, but more events after. "
+                    "This is likely due to a sensor change or malfunction. "
+                    "Skipping time window."
+                )
+            cursor = finish
+
+        # Store the cursor in case we get interrupted
+        item["cursor"] = cursor.strftime(timestr)
+        table.put_item(Item=item)
+
+        if time.time() - fn_start_time > 800:
+            log.info("Running out of time, ending invocation early.")
+            return True
+
+
+def _format_data(data, es_index):
+    """
+    Format data for bulk indexing into elasticsearch
+    """
+    unit = data["unit"]
+    rate_unit = data["rateUnit"]
+    egvs = data["egvs"]
+    docs = []
+
+    for record in egvs:
+        record["unit"] = unit
+        record["rate_unit"] = rate_unit
+        record["@timestamp"] = record.pop("systemTime")
+        record.pop("displayTime")
+        record["realtime_value"] = record.pop("realtimeValue")
+        record["smoothed_value"] = record.pop("smoothedValue")
+        record["trend_rate"] = record.pop("trendRate")
+        docs.append({"_index": es_index, "_type": "document", "_source": record})
+
+    return docs
+
+
+def delete(event, context):
+    """
+    Deletes a user from dynamodb
+    """
+    table = dynamodb.Table(os.environ["DYNAMODB_TABLE"])
+    table.delete_item(Key={"id": user_id})
+
+    response = {}
+    response["statusCode"] = 200
+    data = {"result": "Success!"}
+    response["body"] = json.dumps(data)
+    return response

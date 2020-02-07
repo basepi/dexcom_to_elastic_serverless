@@ -15,6 +15,7 @@ custom:
 provider:
   name: aws
   runtime: python3.8
+  logRetentionInDays: 30
   environment:
     DYNAMODB_TABLE: ${self:service}-${self:custom.stage}
     # Save the expected gateway URL to an environment variable for cross-calls
@@ -58,6 +59,7 @@ provider:
 functions:
   auth:
     handler: dexcom/handler.auth
+    timeout: 30
     events:
       - http:
           path: auth
@@ -65,6 +67,7 @@ functions:
           cors: true
   auth_callback:
     handler: dexcom/handler.auth_callback
+    timeout: 30
     events:
       - http:
           path: auth_callback
@@ -72,6 +75,7 @@ functions:
           cors: true
   refresh:
     handler: dexcom/handler.refresh
+    timeout: 30
     events:
       - http:
           path: refresh
@@ -79,17 +83,28 @@ functions:
           cors: true
   fetch_all:
     handler: dexcom/handler.fetch_all
+    timeout: 30
     events:
       - http:
           path: fetch_all
           method: get
           cors: true
+      - schedule: rate(60 minutes)
   fetch:
     handler: dexcom/handler.fetch
+    timeout: 900
     events:
       - sns:
           arn: !Ref SuperTopic
           topicName: ${self:custom.myTopic}
+  delete:
+    handler: dexcom/handler.delete
+    timeout: 30
+    events:
+      - http:
+          path: delete
+          method: get
+          cors: true
 
 resources:
   Resources:
