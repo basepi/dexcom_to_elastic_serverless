@@ -31,15 +31,15 @@ provider:
     ES_INDEX: ${param:ES_INDEX}
     DEXCOM_CLIENT_ID: ${param:DEXCOM_CLIENT_ID}
     DEXCOM_CLIENT_SECRET: ${param:DEXCOM_CLIENT_SECRET}
-    SNS_TOPIC: !Ref SuperTopic
     ACCESS_KEY: ${param:ACCESS_KEY}
+    DEXCOM_BASE_URL: ${param:DEXCOM_BASE_URL}
     DEXCOM_REDIRECT_URI:
       Fn::Join:
         - ""
         - - "https://"
           - Ref: "ApiGatewayRestApi"
           - ".execute-api.${self:custom.region}.amazonaws.com/${self:custom.stage}/auth_callback"
-    DEXCOM_BASE_URL: ${param:DEXCOM_BASE_URL}
+    SNS_TOPIC: !Ref SuperTopic
   iamRoleStatements:
     - Effect: Allow
       Action:
