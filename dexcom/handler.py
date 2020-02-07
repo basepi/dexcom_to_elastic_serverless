@@ -26,8 +26,9 @@ log.setLevel(logging.INFO)
 timestr = "%Y-%m-%dT%H:%M:%S"
 time_window = timedelta(hours=6)
 
-# TODO: will be from cognito eventually
+# Could we do cognito or something here?
 user_id = "1234567890"
+access_key = os.environ["ACCESS_KEY"]
 
 
 def auth(event, context):
@@ -36,6 +37,13 @@ def auth(event, context):
 
     Callback will be to auth_callback()
     """
+    if event["queryStringParameters"]["access_key"] != access_key:
+        response = {}
+        response["statusCode"] = 401
+        data = {}
+        response["body"] = json.dumps(data)
+        return response
+
     auth_url = f"{base_url}/v2/oauth2/login?client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&scope=offline_access"  # noqa: E501
     response = {}
     response["statusCode"] = 302
@@ -97,6 +105,9 @@ def auth_callback(event, context):
 def refresh(event, context):
     """
     Refresh the token for a user
+
+    I currently don't have this registered to the API Gateway because it's
+    unnecessary -- we just cross-call on fetch
     """
     log.info("Refreshing token.")
 
@@ -296,6 +307,13 @@ def delete(event, context):
     """
     Deletes a user from dynamodb
     """
+    if event["queryStringParameters"]["access_key"] != access_key:
+        response = {}
+        response["statusCode"] = 401
+        data = {}
+        response["body"] = json.dumps(data)
+        return response
+
     table = dynamodb.Table(os.environ["DYNAMODB_TABLE"])
     table.delete_item(Key={"id": user_id})
 

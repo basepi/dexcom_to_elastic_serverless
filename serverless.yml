@@ -32,6 +32,7 @@ provider:
     DEXCOM_CLIENT_ID: ${param:DEXCOM_CLIENT_ID}
     DEXCOM_CLIENT_SECRET: ${param:DEXCOM_CLIENT_SECRET}
     SNS_TOPIC: !Ref SuperTopic
+    ACCESS_KEY: ${param:ACCESS_KEY}
     DEXCOM_REDIRECT_URI:
       Fn::Join:
         - ""
@@ -73,14 +74,14 @@ functions:
           path: auth_callback
           method: get
           cors: true
-  refresh:
-    handler: dexcom/handler.refresh
-    timeout: 30
-    events:
-      - http:
-          path: refresh
-          method: get
-          cors: true
+#  refresh:
+#    handler: dexcom/handler.refresh
+#    timeout: 30
+#    events:
+#      - http:
+#          path: refresh
+#          method: get
+#          cors: true
   fetch_all:
     handler: dexcom/handler.fetch_all
     timeout: 30
