@@ -33,6 +33,7 @@ user_id = "1234567890"
 access_key = os.environ["ACCESS_KEY"]
 
 
+@elasticapm.capture_serverless()
 def auth(event, context):
     """
     Redirect to Dexcom o-auth
@@ -55,6 +56,7 @@ def auth(event, context):
     return response
 
 
+@elasticapm.capture_serverless()
 def auth_callback(event, context):
     """
     Use the oauth code to create a token for the user
@@ -104,6 +106,7 @@ def auth_callback(event, context):
     return response
 
 
+@elasticapm.capture_serverless()
 def refresh(event, context):
     """
     Refresh the token for a user
@@ -169,8 +172,7 @@ def fetch_all(event, context):
     users = table.scan(ProjectionExpression="id")["Items"]
     for user in users:
         user_id = user["id"]
-        with elasticapm.capture_span("sns yo"):
-            sns.publish(TopicArn=topic_arn, Message=user_id)
+        sns.publish(TopicArn=topic_arn, Message=user_id)
 
     response = {}
     response["statusCode"] = 200
@@ -179,6 +181,7 @@ def fetch_all(event, context):
     return response
 
 
+@elasticapm.capture_serverless()
 def fetch(event, context):
     """
     Fetch all of the records for a given user id, passed via SNS
@@ -285,6 +288,7 @@ def fetch(event, context):
             return True
 
 
+@elasticapm.capture_serverless()
 def _format_data(data, es_index):
     """
     Format data for bulk indexing into elasticsearch
@@ -307,6 +311,7 @@ def _format_data(data, es_index):
     return docs
 
 
+@elasticapm.capture_serverless()
 def delete(event, context):
     """
     Deletes a user from dynamodb
