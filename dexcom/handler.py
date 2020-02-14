@@ -159,7 +159,7 @@ def refresh(event, context):
         return response
 
 
-@elasticapm.base.capture_serverless()
+@elasticapm.capture_serverless()
 def fetch_all(event, context):
     """
     Iterates over users in the database, triggering fetch() (via SNS) for each
