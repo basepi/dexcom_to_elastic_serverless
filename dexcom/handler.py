@@ -106,18 +106,12 @@ def auth_callback(event, context):
     return response
 
 
-@elasticapm.capture_serverless()
-def refresh(event, context):
+@elasticapm.capture_span()
+def _refresh(user_id):
     """
     Refresh the token for a user
-
-    I currently don't have this registered to the API Gateway because it's
-    unnecessary -- we just cross-call on fetch
     """
     log.info("Refreshing token.")
-
-    if isinstance(event, str):
-        user_id = event
 
     # Get user info from dynamodb
     table = dynamodb.Table(os.environ["DYNAMODB_TABLE"])
@@ -152,14 +146,7 @@ def refresh(event, context):
     table.put_item(Item=item)
     log.info("Token fetch and save successful.")
 
-    if isinstance(event, str):
-        return access_token, item, expires
-    else:
-        response = {}
-        response["statusCode"] = 200
-        data = {"result": "Success!"}
-        response["body"] = json.dumps(data)
-        return response
+    return access_token, item, expires
 
 
 @elasticapm.capture_serverless()
@@ -198,7 +185,7 @@ def fetch(event, context):
     access_token = item.get("access_token")
 
     if not expires or time.time() > expires:
-        access_token, item, expires = refresh(user_id, None)
+        access_token, item, expires = _refresh(user_id)
 
     # Set up elasticsearch
     es = elasticsearch.Elasticsearch(es_endpoints, http_auth=(es_user, es_password), scheme="https", port=443)
@@ -213,7 +200,7 @@ def fetch(event, context):
     while True:
         # Check if we need a new token
         if time.time() > expires:
-            access_token, item, expires = refresh(user_id, None)
+            access_token, item, expires = _refresh(user_id)
 
         if not earliest_egv or cursor > latest_egv:
             # Get dataranges for the user
