@@ -9,6 +9,8 @@ import elasticsearch
 import elasticsearch.helpers
 import requests
 
+import elasticapm
+
 dynamodb = boto3.resource("dynamodb")
 
 base_url = os.environ["DEXCOM_BASE_URL"]
@@ -157,6 +159,7 @@ def refresh(event, context):
         return response
 
 
+@elasticapm.base.capture_serverless()
 def fetch_all(event, context):
     """
     Iterates over users in the database, triggering fetch() (via SNS) for each
@@ -166,7 +169,8 @@ def fetch_all(event, context):
     users = table.scan(ProjectionExpression="id")["Items"]
     for user in users:
         user_id = user["id"]
-        sns.publish(TopicArn=topic_arn, Message=user_id)
+        with elasticapm.capture_span("sns yo"):
+            sns.publish(TopicArn=topic_arn, Message=user_id)
 
     response = {}
     response["statusCode"] = 200

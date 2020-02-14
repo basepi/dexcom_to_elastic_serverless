@@ -1,3 +1,4 @@
 requests
 elasticsearch
 certifi
+git+git://github.com/basepi/apm-agent-python@serverless#egg=elastic-apm
