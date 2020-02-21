@@ -265,6 +265,15 @@ def fetch(event, context):
                     "Skipping time window."
                 )
             cursor = finish
+        else:
+            # Finish is past our latest_egv, so set cursor to just past latest_egv
+            cursor = latest_egv + timedelta(seconds=1)
+
+            # Store the cursor
+            item["cursor"] = cursor.strftime(timestr)
+            table.put_item(Item=item)
+            log.info("No new records found. Ending invocation.")
+            return True
 
         # Store the cursor in case we get interrupted
         item["cursor"] = cursor.strftime(timestr)
