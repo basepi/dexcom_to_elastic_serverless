@@ -90,7 +90,7 @@ functions:
           path: fetch_all
           method: get
           cors: true
-      - schedule: rate(60 minutes)
+      #- schedule: rate(60 minutes)
   fetch:
     handler: dexcom/handler.fetch
     timeout: 900
