@@ -275,7 +275,7 @@ def fetch(event, context):
             return True
 
 
-@elasticapm.capture_serverless()
+@elasticapm.capture_span
 def _format_data(data, es_index):
     """
     Format data for bulk indexing into elasticsearch
