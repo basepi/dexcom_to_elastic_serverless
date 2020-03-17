@@ -16,6 +16,7 @@ provider:
   name: aws
   runtime: python3.8
   logRetentionInDays: 30
+  tracing: true
   environment:
     DYNAMODB_TABLE: ${self:service}-${self:custom.stage}
     # Save the expected gateway URL to an environment variable for cross-calls
@@ -41,6 +42,12 @@ provider:
           - ".execute-api.${self:custom.region}.amazonaws.com/${self:custom.stage}/auth_callback"
     SNS_TOPIC: !Ref SuperTopic
   iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "xray:PutTraceSegments"
+        - "xray:PutTelemetryRecords"
+      Resource:
+        - "*"
     - Effect: Allow
       Action:
         - dynamodb:Query
@@ -132,3 +139,4 @@ resources:
 
 plugins:
   - serverless-python-requirements
+  - serverless-plugin-tracing

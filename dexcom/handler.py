@@ -10,6 +10,9 @@ import elasticsearch.helpers
 import requests
 
 import elasticapm
+from aws_xray_sdk.core import patch_all
+
+patch_all()
 
 dynamodb = boto3.resource("dynamodb")
 
