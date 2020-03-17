@@ -17,6 +17,7 @@ var/
 *.egg
 venv/
 node_modules/
+.python-version
 
 # Serverless directories
 .serverless
