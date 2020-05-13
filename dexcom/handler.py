@@ -5,11 +5,12 @@ import time
 from datetime import datetime, timedelta
 
 import boto3
+
+# import elasticapm
 import elasticsearch
 import elasticsearch.helpers
 import requests
 
-import elasticapm
 from aws_xray_sdk.core import patch_all
 
 patch_all()
@@ -36,7 +37,7 @@ user_id = "1234567890"
 access_key = os.environ["ACCESS_KEY"]
 
 
-@elasticapm.capture_serverless()
+# @elasticapm.capture_serverless()
 def auth(event, context):
     """
     Redirect to Dexcom o-auth
@@ -59,7 +60,7 @@ def auth(event, context):
     return response
 
 
-@elasticapm.capture_serverless()
+# @elasticapm.capture_serverless()
 def auth_callback(event, context):
     """
     Use the oauth code to create a token for the user
@@ -109,7 +110,7 @@ def auth_callback(event, context):
     return response
 
 
-@elasticapm.capture_span()
+# @elasticapm.capture_span()
 def _refresh(user_id):
     """
     Refresh the token for a user
@@ -152,7 +153,7 @@ def _refresh(user_id):
     return access_token, item, expires
 
 
-@elasticapm.capture_serverless()
+# @elasticapm.capture_serverless()
 def fetch_all(event, context):
     """
     Iterates over users in the database, triggering fetch() (via SNS) for each
@@ -171,7 +172,7 @@ def fetch_all(event, context):
     return response
 
 
-@elasticapm.capture_serverless()
+# @elasticapm.capture_serverless()
 def fetch(event, context):
     """
     Fetch all of the records for a given user id, passed via SNS
@@ -263,9 +264,9 @@ def fetch(event, context):
                 # No events in this window (and more events after this window),
                 # likely due to sensor change.
                 log.info(
-                    "No events in the time window, but more events after. "
-                    "This is likely due to a sensor change or malfunction. "
-                    "Skipping time window."
+                    f"No events in the time window (ending {finishstr}), but "
+                    "more events after. This is likely due to a sensor change "
+                    "or malfunction. Skipping time window."
                 )
             cursor = finish
         else:
@@ -287,7 +288,7 @@ def fetch(event, context):
             return True
 
 
-@elasticapm.capture_span()
+# @elasticapm.capture_span()
 def _format_data(data, es_index):
     """
     Format data for bulk indexing into elasticsearch
@@ -310,7 +311,7 @@ def _format_data(data, es_index):
     return docs
 
 
-@elasticapm.capture_serverless()
+# @elasticapm.capture_serverless()
 def delete(event, context):
     """
     Deletes a user from dynamodb
