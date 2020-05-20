@@ -28,7 +28,7 @@ es_endpoints = [os.environ["ES_ENDPOINT"]]
 topic_arn = os.environ["SNS_TOPIC"]
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
+log.setLevel(logging.DEBUG)
 timestr = "%Y-%m-%dT%H:%M:%S"
 time_window = timedelta(hours=6)
 
@@ -220,21 +220,30 @@ def fetch(event, context):
             # Sometimes egv can have a decimal on the seconds. Throw it away.
             earliest_egv = datetime.strptime(data["egvs"]["start"]["systemTime"].split(".", 1)[0], timestr)
             latest_egv = datetime.strptime(data["egvs"]["end"]["systemTime"].split(".", 1)[0], timestr)
+            latest_egv = latest_egv - timedelta(hours=4)
+
+            log.info(f"Cursor: {cursor.strftime(timestr)}")
+            log.info(f"Earliest EGV: {earliest_egv.strftime(timestr)}")
+            log.info(f"Latest EGV: {latest_egv.strftime(timestr)}")
 
         if earliest_egv > cursor:
             cursor = earliest_egv
         elif cursor > latest_egv:
             # We've fetched all the records
-            log.info("No new records found. Ending invocation.")
+            log.info(
+                f"Cursor ({cursor.strftime(timestr)}) is ahead of "
+                f"latest_egv ({latest_egv.strftime(timestr)}). Ending."
+            )
             return True
 
-        # Fetch an hour of estimated glucose values (egv)
+        # Fetch a <window> of estimated glucose values (egv)
         finish = cursor + time_window
 
         startstr = cursor.strftime(timestr)
         finishstr = finish.strftime(timestr)
 
         try:
+            log.debug(f"Fetching EGVs from {startstr} to {finishstr}")
             headers = {"authorization": f"Bearer {access_token}"}
             r = requests.get(
                 base_url + f"/v2/users/self/egvs?startDate={startstr}&endDate={finishstr}", headers=headers
@@ -247,6 +256,7 @@ def fetch(event, context):
 
         data = _format_data(data, es_index + user_id) if data else {}
 
+        last_egv = None
         if data:
             # Bulk send to elasticsearch
             elasticsearch.helpers.bulk(es, data)
@@ -271,12 +281,14 @@ def fetch(event, context):
             cursor = finish
         else:
             # Finish is past our latest_egv, so set cursor to just past latest_egv
-            cursor = latest_egv + timedelta(seconds=1)
+            # (unless we had a last_egv in this fetch and have already set cursor
+            if not last_egv:
+                cursor = latest_egv + timedelta(seconds=1)
 
             # Store the cursor
             item["cursor"] = cursor.strftime(timestr)
             table.put_item(Item=item)
-            log.info("No new records found. Ending invocation.")
+            log.info(f"No new records found. Ending invocation.(Cursor: {cursor.strftime(timestr)})")
             return True
 
         # Store the cursor in case we get interrupted
@@ -293,6 +305,7 @@ def _format_data(data, es_index):
     """
     Format data for bulk indexing into elasticsearch
     """
+    log.debug(f"Formatting data: {data}")
     unit = data["unit"]
     rate_unit = data["rateUnit"]
     egvs = data["egvs"]
